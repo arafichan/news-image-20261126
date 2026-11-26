@@ -7,17 +7,25 @@
 // PNG or JPEG of at most 1 MiB and 1024 by 1024 pixels, and the judge sees exactly
 // the bytes copied. The image itself is deterministic: it was drawn once from the
 // 35 headlines and is copied byte-for-byte, so two runs of this program write
-// identical entry.png files.
+// identical entry.png files. After copying, the program checks the destination is
+// the same size as the source and throws if it is not, so a truncated write fails
+// loudly instead of passing silently.
 //
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output
 // (the program creates the directory when it does not exist yet):
 //   MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 // The output directory is created when it does not exist yet, so the program
 // also runs with a fresh MAKEFUN_OUTPUT_DIR as well as with the grader's /output.
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 mkdirSync(outDir, { recursive: true });
-copyFileSync(new URL('./entry.png', import.meta.url), join(outDir, 'entry.png'));
+const src = new URL('./entry.png', import.meta.url);
+const dest = join(outDir, 'entry.png');
+copyFileSync(src, dest);
+// Verify the copy landed whole: a truncated write must fail loudly, not silently.
+if (statSync(src).size !== statSync(dest).size) {
+  throw new Error(`entry.png copy incomplete: ${statSync(dest).size} of ${statSync(src).size} bytes`);
+}
